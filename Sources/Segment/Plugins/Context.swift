@@ -45,6 +45,9 @@ public class Context: PlatformPlugin {
             "version": __segment_version
         ]
         
+        // overwrite ip
+        staticContext["ip"] = "0.0.0.0"
+
         // app info
         let info = Bundle.main.infoDictionary
         let localizedInfo = Bundle.main.localizedInfoDictionary
@@ -78,8 +81,6 @@ public class Context: PlatformPlugin {
             "manufacturer": device.manufacturer,
             "type": device.type,
             "model": device.model,
-            "name": device.name,
-            "id": device.identifierForVendor ?? ""
         ]
         // os
         context["os"] = [
@@ -92,9 +93,6 @@ public class Context: PlatformPlugin {
             "width": screen.width,
             "height": screen.height
         ]
-        // user-agent
-        let userAgent = device.userAgent
-        context["userAgent"] = userAgent
         // locale
         if Locale.preferredLanguages.count > 0 {
             context["locale"] = Locale.preferredLanguages[0]
