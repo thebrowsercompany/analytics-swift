@@ -30,6 +30,7 @@ public class Configuration {
         var autoAddSegmentDestination: Bool = true
         var apiHost: String = HTTPClient.getDefaultAPIHost()
         var cdnHost: String = HTTPClient.getDefaultCDNHost()
+        var maximumLogFilesOnDisk: Int = 15
     }
     internal var values: Values
 
