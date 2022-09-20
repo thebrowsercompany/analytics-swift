@@ -125,15 +125,10 @@ public class SegmentDestination: DestinationPlugin {
                         case .success(_):
                             storage.remove(file: url)
                             self?.cleanupUploads()
-                        case let .failure(error):
-                            // Until https://github.com/segmentio/analytics-swift/issues/152 is resolved we should remove failing files since we run the risk of building up a huge list of pending files to upload.
-                            if error.connectivityError {
-                                storage.remove(file: url)
-                            }
+                        default:
+                            analytics.logFlush()
                     }
 
-                    analytics.logFlush()
-                    
                     analytics.log(message: "Processed: \(url.lastPathComponent)")
                     // the upload we have here has just finished.
                     // make sure it gets removed and it's cleanup() called rather
