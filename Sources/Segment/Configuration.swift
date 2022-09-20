@@ -96,5 +96,11 @@ public extension Configuration {
         values.cdnHost = value
         return self
     }
+
+    @discardableResult
+    func maximumLogFilesOnDisk(_ value: Int) -> Configuration {
+        values.maximumLogFilesOnDisk = value
+        return self
+    }
 }
 

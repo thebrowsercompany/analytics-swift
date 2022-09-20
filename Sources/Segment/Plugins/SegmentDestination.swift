@@ -119,7 +119,7 @@ public class SegmentDestination: DestinationPlugin {
             // keep these to try to forward on, but we'll drop anything older.
             let filesToKeep = data.prefix(maximumLogFilesAllowed)
             let filesToRemove = data.suffix(data.count - maximumLogFilesAllowed)
-            filesToRemove.forEach({ storage.remove(file: $0)})
+            filesToRemove.forEach({ storage.remove(file: $0) })
 
             data = Array(filesToKeep)
         }
