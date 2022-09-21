@@ -109,7 +109,20 @@ public class SegmentDestination: DestinationPlugin {
         guard let httpClient = self.httpClient else { return }
 
         // Read events from file system
-        guard let data = storage.read(Storage.Constants.events) else { return }
+        guard var data = storage.read(Storage.Constants.events) else { return }
+
+        let maximumLogFilesAllowed = analytics.configuration.values.maximumLogFilesOnDisk
+        // Check if we've exceeded the maximum allowed backlog of files and
+        // clean up the set of potential upload as needed.
+        if data.count > maximumLogFilesAllowed {
+            // The SDK Sorts the files with the newest ones being first, we'll
+            // keep these to try to forward on, but we'll drop anything older.
+            let filesToKeep = data.prefix(maximumLogFilesAllowed)
+            let filesToRemove = data.suffix(data.count - maximumLogFilesAllowed)
+            filesToRemove.forEach({ storage.remove(file: $0) })
+
+            data = Array(filesToKeep)
+        }
         
         eventCount = 0
         cleanupUploads()
@@ -120,20 +133,20 @@ public class SegmentDestination: DestinationPlugin {
             for url in data {
                 analytics.log(message: "Processing Batch:\n\(url.lastPathComponent)")
                 
-                let uploadTask = httpClient.startBatchUpload(writeKey: analytics.configuration.values.writeKey, batch: url) { (result) in
+                let uploadTask = httpClient.startBatchUpload(writeKey: analytics.configuration.values.writeKey, batch: url) { [weak self] (result) in
                     switch result {
                         case .success(_):
                             storage.remove(file: url)
-                            self.cleanupUploads()
+                            self?.cleanupUploads()
                         default:
                             analytics.logFlush()
                     }
-                    
+
                     analytics.log(message: "Processed: \(url.lastPathComponent)")
                     // the upload we have here has just finished.
                     // make sure it gets removed and it's cleanup() called rather
                     // than waiting on the next flush to come around.
-                    self.cleanupUploads()
+                    self?.cleanupUploads()
                 }
                 // we have a legit upload in progress now, so add it to our list.
                 if let upload = uploadTask {
