@@ -1,5 +1,5 @@
 //
-//  File.swift
+//  watchOSLifecycleMonitor.swift
 //  
 //
 //  Created by Brandon Sneed on 6/24/21.
@@ -28,8 +28,8 @@ public extension watchOSLifecycle {
 
 
 class watchOSLifecycleMonitor: PlatformPlugin {
-    var type = PluginType.utility
-    var analytics: Analytics?
+    let type = PluginType.utility
+    weak var analytics: Analytics?
     var wasBackgrounded: Bool = false
     
     private var watchExtension = WKExtension.shared()
@@ -131,4 +131,16 @@ extension SegmentDestination: watchOSLifecycle {
     }
 }
 
+
+// MARK: - Interval Based Flush Policy Extension
+
+extension IntervalBasedFlushPolicy: watchOSLifecycle {
+    public func applicationWillEnterForeground(watchExtension: WKExtension) {
+        enterForeground()
+    }
+    
+    public func applicationDidEnterBackground(watchExtension: WKExtension) {
+        enterBackground()
+    }
+}
 #endif

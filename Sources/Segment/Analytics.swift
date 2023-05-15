@@ -11,16 +11,18 @@ import Sovran
 // MARK: - Base Setup
 
 public class Analytics {
-    internal var configuration: Configuration
+    internal var configuration: Configuration {
+        get {
+            // we're absolutely certain we will have a config
+            let system: System = store.currentState()!
+            return system.configuration
+        }
+    }
     internal var store: Store
     internal var storage: Storage
     
     /// Enabled/disables debug logging to trace your data going through the SDK.
-    public static var debugLogsEnabled = false {
-        didSet {
-            SegmentLog.loggingEnabled = debugLogsEnabled
-        }
-    }
+    public static var debugLogsEnabled = false
     
     public var timeline: Timeline
     
@@ -28,8 +30,6 @@ public class Analytics {
     /// - Parameters:
     ///    - configuration: The configuration to use
     public init(configuration: Configuration) {
-        self.configuration = configuration
-        
         store = Store()
         storage = Storage(store: self.store, writeKey: configuration.values.writeKey)
         timeline = Timeline()
@@ -38,19 +38,34 @@ public class Analytics {
         store.provide(state: System.defaultState(configuration: configuration, from: storage))
         store.provide(state: UserInfo.defaultState(from: storage))
         
+        storage.analytics = self
+        
         // Get everything running
         platformStartup()
     }
     
     internal func process<E: RawEvent>(incomingEvent: E) {
+        guard enabled == true else { return }
         let event = incomingEvent.applyRawEventData(store: store)
+        
         _ = timeline.process(incomingEvent: event)
+        
+        let flushPolicies = configuration.values.flushPolicies
+        for policy in flushPolicies {
+            policy.updateState(event: event)
+            
+            if (policy.shouldFlush() == true) {
+                flush()
+                policy.reset()
+            }
+        }
     }
     
     /// Process a raw event through the system.  Useful when one needs to queue and replay events at a later time.
     /// - Parameters:
     ///   - event: An event conforming to RawEvent that will be processed.
     public func process(event: RawEvent) {
+        guard enabled == true else { return }
         switch event {
         case let e as TrackEvent:
             timeline.process(incomingEvent: e)
@@ -71,6 +86,20 @@ public class Analytics {
 // MARK: - System Modifiers
 
 extension Analytics {
+    /// Enable/Disable analytics capture
+    public var enabled: Bool {
+        get {
+            if let system: System = store.currentState() {
+                return system.enabled
+            }
+            // we don't have state if we get here, so assume we're not enabled.
+            return false
+        }
+        set(value) {
+            store.dispatch(action: System.ToggleEnabledAction(enabled: value))
+        }
+    }
+    
     /// Returns the anonymousId currently in use.
     public var anonymousId: String {
         if let userInfo: UserInfo = store.currentState() {
@@ -85,6 +114,39 @@ extension Analytics {
             return userInfo.userId
         }
         return nil
+    }
+    
+    /// Adjusts the flush interval post configuration.
+    public var flushInterval: TimeInterval {
+        get {
+            configuration.values.flushInterval
+        }
+        set(value) {
+            if let state: System = store.currentState() {
+                let config = state.configuration.flushInterval(value)
+                store.dispatch(action: System.UpdateConfigurationAction(configuration: config))
+            }
+        }
+    }
+    
+    /// Adjusts the flush-at count post configuration.
+    public var flushAt: Int {
+        get {
+            configuration.values.flushAt
+        }
+        set(value) {
+            if let state: System = store.currentState() {
+                let config = state.configuration.flushAt(value)
+                store.dispatch(action: System.UpdateConfigurationAction(configuration: config))
+            }
+        }
+    }
+    
+    public var flushPolicies: [FlushPolicy] {
+        
+        get {
+            configuration.values.flushPolicies
+        }
     }
     
     /// Returns the traits that were specified in the last identify call.
@@ -106,6 +168,9 @@ extension Analytics {
     /// Tells this instance of Analytics to flush any queued events up to Segment.com.  This command will also
     /// be sent to each plugin present in the system.
     public func flush() {
+        // only flush if we're enabled.
+        guard enabled == true else { return }
+        
         apply { plugin in
             if let p = plugin as? EventPlugin {
                 p.flush()
@@ -155,7 +220,6 @@ extension Analytics {
     public func manuallyEnableDestination(plugin: DestinationPlugin) {
         self.store.dispatch(action: System.AddDestinationToSettingsAction(key: plugin.key))
     }
-
 }
 
 extension Analytics {
@@ -184,6 +248,20 @@ extension Analytics {
         return storage.read(Storage.Constants.events)
     }
     
+    /// Purge all pending event upload files.
+    public func purgeStorage() {
+        if let files = pendingUploads {
+            for file in files {
+                purgeStorage(fileURL: file)
+            }
+        }
+    }
+    
+    /// Purge a single event upload file.
+    public func purgeStorage(fileURL: URL) {
+        try? FileManager.default.removeItem(at: fileURL)
+    }
+    
     /// Wait until the Analytics object has completed startup.
     /// This method is primarily useful for command line utilities where
     /// it's desirable to wait until the system is up and running
@@ -195,5 +273,62 @@ extension Analytics {
                 RunLoop.main.run(until: Date.distantPast)
             }
         }
+    }
+}
+
+extension Analytics {
+    /**
+     Call openURL as needed or when instructed to by either UIApplicationDelegate or UISceneDelegate.
+     This is necessary to track URL referrers across events.  This method will also iterate
+     any plugins that are watching for openURL events.
+     
+     Example:
+     ```
+     func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey : Any] = [:]) -> Bool {
+         let myStruct = MyStruct(options)
+         analytics?.openURL(url, options: options)
+         return true
+     }
+     ```
+     */
+    public func openURL<T: Codable>(_ url: URL, options: T? = nil) {
+        guard let jsonProperties = try? JSON(with: options) else { return }
+        guard let dict = jsonProperties.dictionaryValue else { return }
+        openURL(url, options: dict)
+    }
+    
+    /**
+     Call openURL as needed or when instructed to by either UIApplicationDelegate or UISceneDelegate.
+     This is necessary to track URL referrers across events.  This method will also iterate
+     any plugins that are watching for openURL events.
+     
+     Example:
+     ```
+     func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey : Any] = [:]) -> Bool {
+         analytics?.openURL(url, options: options)
+         return true
+     }
+     ```
+     */
+    public func openURL(_ url: URL, options: [String: Any] = [:]) {
+        store.dispatch(action: UserInfo.SetReferrerAction(url: url))
+        
+        // let any conforming plugins know
+        apply { plugin in
+            if let p = plugin as? OpeningURLs {
+                p.openURL(url, options: options)
+            }
+        }
+        
+        var jsonProperties: JSON? = nil
+        if let json = try? JSON(options) {
+            jsonProperties = json
+            _ = try? jsonProperties?.add(value: url.absoluteString, forKey: "url")
+        } else {
+            if let json = try? JSON(["url": url.absoluteString]) {
+                jsonProperties = json
+            }
+        }
+        track(name: "Deep Link Opened", properties: jsonProperties)
     }
 }

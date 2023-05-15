@@ -46,7 +46,7 @@ class macOSLifecycleMonitor: PlatformPlugin {
     static var specificName = "Segment_macOSLifecycleMonitor"
     let type = PluginType.utility
     let name = specificName
-    var analytics: Analytics?
+    weak var analytics: Analytics?
     
     private var application: NSApplication
     private var appNotifications: [NSNotification.Name] =
@@ -235,6 +235,18 @@ extension SegmentDestination: macOSLifecycle {
     }
     
     public func applicationWillResignActive() {
+        enterBackground()
+    }
+}
+
+// MARK: - Interval Based Flush Policy Extension
+
+extension IntervalBasedFlushPolicy: macOSLifecycle {
+    public func applicationWillEnterForeground() {
+        enterForeground()
+    }
+    
+    public func applicationDidEnterBackground() {
         enterBackground()
     }
 }

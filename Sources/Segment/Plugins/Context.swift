@@ -7,12 +7,21 @@
 
 import Foundation
 
+public protocol OpeningURLs {
+    func openURL(_ url: URL, options: [String : Any])
+}
+
+extension OpeningURLs {
+    func openURL(_ url: URL, options: [String : Any]) {}
+}
+
 public class Context: PlatformPlugin {
     public let type: PluginType = .before
-    public var analytics: Analytics?
+    public weak var analytics: Analytics?
     
     internal var staticContext = staticContextData()
     internal static var device = VendorSystem.current
+    internal let instanceId = UUID().uuidString
     
     public func execute<T: RawEvent>(event: T?) -> T? {
         guard var workingEvent = event else { return event }
@@ -20,6 +29,13 @@ public class Context: PlatformPlugin {
         var context = staticContext
         
         insertDynamicPlatformContextData(context: &context)
+        
+        // add instanceId to the context
+        context["instanceId"] = instanceId
+        
+        if let userInfo: UserInfo = analytics?.store.currentState(), let referrer = userInfo.referrer {
+            context["referrer"] = ["url": referrer.absoluteString]
+        }
         
         // if this event came in with context data already
         // let it take precedence over our values.
@@ -30,7 +46,7 @@ public class Context: PlatformPlugin {
         do {
             workingEvent.context = try JSON(context)
         } catch {
-            exceptionFailure("Unable to convert context to JSON: \(error)")
+            analytics?.reportInternalError(error)
         }
         
         return workingEvent
@@ -42,7 +58,7 @@ public class Context: PlatformPlugin {
         // library name
         staticContext["library"] = [
             "name": "analytics-swift",
-            "version": __segment_version
+            "version": __segment_version,
         ]
         
         // overwrite ip
