@@ -75,12 +75,14 @@ public class Context: PlatformPlugin {
     internal static func insertStaticPlatformContextData(context: inout [String: Any]) {
         // device
         let device = Self.device
+        let memoryGB = ProcessInfo.processInfo.physicalMemory / (1024*1024*1024)
         
         // "token" handled in DeviceToken.swift
         context["device"] = [
             "manufacturer": device.manufacturer,
             "type": device.type,
             "model": device.model,
+            "memorySize": memoryGB
         ]
         // os
         context["os"] = [
