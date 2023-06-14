@@ -76,13 +76,15 @@ public class Context: PlatformPlugin {
         // device
         let device = Self.device
         let memoryGB = ProcessInfo.processInfo.physicalMemory / (1024*1024*1024)
+        let modelName = CurrentDevice.getModel()
         
         // "token" handled in DeviceToken.swift
         context["device"] = [
             "manufacturer": device.manufacturer,
             "type": device.type,
-            "model": device.model,
-            "memorySize": memoryGB
+            "model": device.model, // eg arm, x86
+            "physicalMemoryGB": memoryGB,
+            "modelName": modelName // eg MacBookAir13,1
         ]
         // os
         context["os"] = [
@@ -134,4 +136,34 @@ public class Context: PlatformPlugin {
         // other stuff?? ...
     }
 
+}
+
+enum CurrentDevice {
+    /// Returns the model identifier for the current device.
+    /// (i.e. MacbookPro18,1)
+    static func getModel() -> String {
+        // swiftlint:disable force_unwrapping
+        #if canImport(UIKit)
+        // taken from https://github.com/Ekhoo/Device/blob/master/Source/iOS/Device.swift#LL17C138-L17C138
+        var systemInfo = utsname()
+        uname(&systemInfo)
+        return String(
+            validatingUTF8: NSString(
+                bytes: &systemInfo.machine,
+                length: Int(_SYS_NAMELEN),
+                encoding: String.Encoding.ascii.rawValue
+            )!.utf8String!
+        )!
+        #else
+        // h/t Saleem!
+        // https://thebrowsercompany.slack.com/archives/C0322NP6800/p1682960559345599?thread_ts=1682959159.259779&cid=C0322NP6800
+        var len: CLong = 0
+        _ = sysctlbyname("hw.model", nil, &len, nil, 0)
+        return withUnsafeTemporaryAllocation(of: CChar.self, capacity: len) {
+            _ = sysctlbyname("hw.model", $0.baseAddress!, &len, nil, 0)
+            return String(cString: $0.baseAddress!)
+        }
+        #endif
+        // swiftlint:enable force_unwrapping
+    }
 }
