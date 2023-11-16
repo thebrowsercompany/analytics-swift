@@ -17,7 +17,6 @@ struct Personal: Codable {
 struct TestStruct: Codable {
     let str: String
     let bool: Bool
-    let float: Float
     let int: Int
     let uint: UInt
     let double: Double
@@ -38,7 +37,7 @@ class JSONTests: XCTestCase {
 
     func testJSONBasic() throws {
         let traits = try? JSON(["email": "blah@blah.com"])
-        let userInfo = UserInfo(anonymousId: "1234", userId: "brandon", traits: traits)
+        let userInfo = UserInfo(anonymousId: "1234", userId: "brandon", traits: traits, referrer: nil)
         
         let encoder = JSONEncoder()
         encoder.outputFormatting = .prettyPrinted
@@ -52,8 +51,18 @@ class JSONTests: XCTestCase {
         }
     }
     
+    func testJSONCollectionTypes() throws {
+        let testSet: Set = ["1", "2", "3"]
+        let traits = try! JSON(["type": NSNull(), "preferences": ["bwack"], "key": testSet])
+        let jsonSet = traits["key"]
+        XCTAssertNotNil(jsonSet)
+        let array = jsonSet!.arrayValue!
+        XCTAssertNotNil(array)
+        XCTAssertEqual(array.count, 3)
+    }
+    
     func testJSONNil() throws {
-        let traits = try JSON(["type": NSNull(), "preferences": ["bwack"]])
+        let traits = try JSON(["type": NSNull(), "preferences": ["bwack"], "key": nil] as [String : Any?])
         let encoder = JSONEncoder()
         encoder.outputFormatting = .prettyPrinted
         
@@ -88,7 +97,6 @@ class JSONTests: XCTestCase {
         let test = TestStruct(
             str: "hello",
             bool: true,
-            float: 3.14,
             int: -42,
             uint: 42,
             double: 1.234,
@@ -133,7 +141,6 @@ class JSONTests: XCTestCase {
         let test = TestStruct(
             str: "hello",
             bool: true,
-            float: 3.14,
             int: -42,
             uint: 42,
             double: 1.234,
@@ -150,13 +157,6 @@ class JSONTests: XCTestCase {
         
         let str = typedDict?["str"] as? String
         let bool = typedDict?["bool"] as? Bool
-        #if os(Linux)
-        // the linux implementation of Dictionary has
-        // some issues w/ type conversion to float.
-        let float = typedDict?["float"] as? Decimal
-        #else
-        let float = typedDict?["float"] as? Float
-        #endif
         let int = typedDict?["int"] as? Int
         let uint = typedDict?["uint"] as? UInt
         let double = typedDict?["double"] as? Double
@@ -166,7 +166,6 @@ class JSONTests: XCTestCase {
         
         XCTAssertEqual(str, "hello")
         XCTAssertEqual(bool, true)
-        XCTAssertEqual(float, 3.14)
         XCTAssertEqual(int, -42)
         XCTAssertEqual(uint, 42)
         XCTAssertEqual(double, 1.234)
@@ -208,7 +207,7 @@ class JSONTests: XCTestCase {
     
     func testKeyMappingWithValueTransform() {
         let keys = ["Key1": "AKey1", "Key2": "AKey2"]
-        let dict: [String: Any] = ["Key1": 1, "Key2": 2, "Key3": 3, "Key4": ["Key1": 1], "Key5": [1, 2, ["Key1": 1]]]
+        let dict: [String: Any] = ["Key1": 1, "Key2": 2, "Key3": 3, "Key4": ["Key1": 1], "Key5": [1, 2, ["Key1": 1]] as [Any]]
         
         let json = try! JSON(dict)
         

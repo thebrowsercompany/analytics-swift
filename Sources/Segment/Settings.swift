@@ -12,6 +12,8 @@ public struct Settings: Codable {
     public var plan: JSON? = nil
     public var edgeFunction: JSON? = nil
     public var middlewareSettings: JSON? = nil
+    public var metrics: JSON? = nil
+    public var consentSettings: JSON? = nil
 
     public init(writeKey: String, apiHost: String) {
         integrations = try! JSON([
@@ -37,6 +39,20 @@ public struct Settings: Codable {
         self.plan = try? values.decode(JSON.self, forKey: CodingKeys.plan)
         self.edgeFunction = try? values.decode(JSON.self, forKey: CodingKeys.edgeFunction)
         self.middlewareSettings = try? values.decode(JSON.self, forKey: CodingKeys.middlewareSettings)
+        self.metrics = try? values.decode(JSON.self, forKey: CodingKeys.metrics)
+        self.consentSettings = try? values.decode(JSON.self, forKey: CodingKeys.consentSettings)
+    }
+    
+    static public func load(from url: URL?) -> Settings? {
+        guard let url = url else { return nil }
+        guard let data = try? Data(contentsOf: url) else { return nil }
+        let settings = try? JSONDecoder().decode(Settings.self, from: data)
+        return settings
+    }
+    
+    static public func load(resource: String, bundle: Bundle = Bundle.main) -> Settings? {
+        let url = bundle.url(forResource: resource, withExtension: nil)
+        return load(from: url)
     }
     
     enum CodingKeys: String, CodingKey {
@@ -44,6 +60,8 @@ public struct Settings: Codable {
         case plan
         case edgeFunction
         case middlewareSettings
+        case metrics
+        case consentSettings
     }
     
     /**
@@ -124,7 +142,7 @@ extension Analytics {
         #endif
         
         let writeKey = self.configuration.values.writeKey
-        let httpClient = HTTPClient(analytics: self, cdnHost: configuration.values.cdnHost)
+        let httpClient = HTTPClient(analytics: self)
         let systemState: System? = store.currentState()
         let hasSettings = (systemState?.settings?.integrations != nil && systemState?.settings?.plan != nil)
         let updateType = (hasSettings ? UpdateType.refresh : UpdateType.initial)

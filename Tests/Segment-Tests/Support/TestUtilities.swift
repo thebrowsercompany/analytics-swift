@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import XCTest
 @testable import Segment
 
 extension UUID{
@@ -32,17 +33,9 @@ class GooberPlugin: EventPlugin {
     }
     
     func identify(event: IdentifyEvent) -> IdentifyEvent? {
-        let beginningTime = Date()
         var newEvent = IdentifyEvent(existing: event)
         newEvent.userId = "goober"
-        sleep(3)
-        let endingTime = Date()
-        let finalTime = endingTime.timeIntervalSince(beginningTime)
-        
-        Analytics.segmentMetric(.gauge, name: "Gauge Test", value: finalTime, tags: ["timing", "function_length"])
-        
         return newEvent
-        //return nil
     }
 }
 
@@ -67,6 +60,15 @@ class ZiggyPlugin: EventPlugin {
         completion?()
     }
 }
+
+#if !os(Linux)
+
+@objc(SEGMyDestination)
+public class ObjCMyDestination: NSObject, ObjCPlugin, ObjCPluginShim {
+    public func instance() -> EventPlugin { return MyDestination() }
+}
+
+#endif
 
 class MyDestination: DestinationPlugin {
     var timeline: Timeline
@@ -133,3 +135,41 @@ func waitUntilStarted(analytics: Analytics?) {
         }
     }
 }
+
+extension XCTestCase {
+    func checkIfLeaked(_ instance: AnyObject, file: StaticString = #filePath, line: UInt = #line) {
+        addTeardownBlock { [weak instance] in
+            if instance != nil {
+                print("Instance \(String(describing: instance)) is not nil")
+            }
+            XCTAssertNil(instance, "Instance should have been deallocated. Potential memory leak!", file: file, line: line)
+        }
+    }
+}
+
+#if !os(Linux)
+
+class BlockNetworkCalls: URLProtocol {
+    var initialURL: URL? = nil
+    override class func canInit(with request: URLRequest) -> Bool {
+        
+        return true
+    }
+    
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest {
+        return request
+    }
+    
+    override var cachedResponse: CachedURLResponse? { return nil }
+    
+    override func startLoading() {
+        client?.urlProtocol(self, didReceive: HTTPURLResponse(url: URL(string: "http://api.segment.com")!, statusCode: 200, httpVersion: nil, headerFields: ["blocked": "true"])!, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocolDidFinishLoading(self)
+    }
+    
+    override func stopLoading() {
+        
+    }
+}
+
+#endif

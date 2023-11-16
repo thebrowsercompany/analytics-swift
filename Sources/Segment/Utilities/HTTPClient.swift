@@ -14,38 +14,26 @@ enum HTTPClientErrors: Error {
     case badSession
     case failedToOpenBatch
     case statusCode(code: Int)
+    case unknown(error: Error)
 }
 
 public class HTTPClient {
     private static let defaultAPIHost = "api.segment.io/v1"
     private static let defaultCDNHost = "cdn-settings.segment.com/v1"
     
-    private var session: URLSession
+    internal var session: URLSession
     private var apiHost: String
     private var apiKey: String
     private var cdnHost: String
-    private let analytics: Analytics
     
-    init(analytics: Analytics, apiKey: String? = nil, apiHost: String? = nil, cdnHost: String? = nil) {
+    private weak var analytics: Analytics?
+    
+    init(analytics: Analytics) {
         self.analytics = analytics
         
-        if let apiKey = apiKey {
-            self.apiKey = apiKey
-        } else {
-            self.apiKey = analytics.configuration.values.writeKey
-        }
-        
-        if let apiHost = apiHost {
-            self.apiHost = apiHost
-        } else {
-            self.apiHost = Self.defaultAPIHost
-        }
-        
-        if let cdnHost = cdnHost {
-            self.cdnHost = cdnHost
-        } else {
-            self.cdnHost = Self.defaultCDNHost
-        }
+        self.apiKey = analytics.configuration.values.writeKey
+        self.apiHost = analytics.configuration.values.apiHost
+        self.cdnHost = analytics.configuration.values.cdnHost
         
         self.session = Self.configuredSession(for: self.apiKey)
     }
@@ -66,33 +54,31 @@ public class HTTPClient {
     @discardableResult
     func startBatchUpload(writeKey: String, batch: URL, completion: @escaping (_ result: Result<Bool, Error>) -> Void) -> URLSessionDataTask? {
         guard let uploadURL = segmentURL(for: apiHost, path: "/b") else {
+            self.analytics?.reportInternalError(HTTPClientErrors.failedToOpenBatch)
             completion(.failure(HTTPClientErrors.failedToOpenBatch))
             return nil
         }
-                
-        var urlRequest = URLRequest(url: uploadURL)
-        urlRequest.httpMethod = "POST"
-        
+          
+        let urlRequest = configuredRequest(for: uploadURL, method: "POST")
+
         let dataTask = session.uploadTask(with: urlRequest, fromFile: batch) { [weak self] (data, response, error) in
             if let error = error {
-                self?.analytics.log(message: "Error uploading request \(error.localizedDescription).")
-                completion(.failure(error))
+                self?.analytics?.log(message: "Error uploading request \(error.localizedDescription).")
+                self?.analytics?.reportInternalError(AnalyticsError.networkUnknown(error))
+                completion(.failure(HTTPClientErrors.unknown(error: error)))
             } else if let httpResponse = response as? HTTPURLResponse {
                 switch (httpResponse.statusCode) {
                 case 1..<300:
                     completion(.success(true))
                     return
                 case 300..<400:
-                    self?.analytics.log(message: "Server responded with unexpected HTTP code \(httpResponse.statusCode).")
+                    self?.analytics?.reportInternalError(AnalyticsError.networkUnexpectedHTTPCode(httpResponse.statusCode))
                     completion(.failure(HTTPClientErrors.statusCode(code: httpResponse.statusCode)))
                 case 429:
-                    self?.analytics.log(message: "Server limited client with response code \(httpResponse.statusCode).")
+                    self?.analytics?.reportInternalError(AnalyticsError.networkServerLimited(httpResponse.statusCode))
                     completion(.failure(HTTPClientErrors.statusCode(code: httpResponse.statusCode)))
-                case 400..<500:
-                    self?.analytics.log(message: "Server rejected payload with HTTP code \(httpResponse.statusCode).")
-                    completion(.failure(HTTPClientErrors.statusCode(code: httpResponse.statusCode)))
-                default: // All 500 codes
-                    self?.analytics.log(message: "Server rejected payload with HTTP code \(httpResponse.statusCode).")
+                default:
+                    self?.analytics?.reportInternalError(AnalyticsError.networkServerRejected(httpResponse.statusCode))
                     completion(.failure(HTTPClientErrors.statusCode(code: httpResponse.statusCode)))
                 }
             }
@@ -108,31 +94,38 @@ public class HTTPClient {
             return
         }
         
-        var urlRequest = URLRequest(url: settingsURL)
-        urlRequest.httpMethod = "GET"
-
+        let urlRequest = configuredRequest(for: settingsURL, method: "GET")
+        
         let dataTask = session.dataTask(with: urlRequest) { [weak self] (data, response, error) in
             if let error = error {
-                self?.analytics.log(message: "Error fetching settings \(error.localizedDescription).")
+                self?.analytics?.reportInternalError(AnalyticsError.networkUnknown(error))
                 completion(false, nil)
                 return
             }
 
             if let httpResponse = response as? HTTPURLResponse {
                 if httpResponse.statusCode > 300 {
-                    self?.analytics.log(message: "Server responded with unexpected HTTP code \(httpResponse.statusCode).")
+                    self?.analytics?.reportInternalError(AnalyticsError.networkUnexpectedHTTPCode(httpResponse.statusCode))
                     completion(false, nil)
                     return
                 }
             }
 
-            guard let data = data, let responseJSON = try? JSONDecoder().decode(Settings.self, from: data) else {
-                self?.analytics.log(message: "Error deserializing settings.")
+            guard let data = data else {
+                self?.analytics?.reportInternalError(AnalyticsError.networkInvalidData)
                 completion(false, nil)
                 return
             }
             
-            completion(true, responseJSON)
+            do {
+                let responseJSON = try JSONDecoder().decode(Settings.self, from: data)
+                completion(true, responseJSON)
+            } catch {
+                self?.analytics?.reportInternalError(AnalyticsError.jsonUnableToDeserialize(error))
+                completion(false, nil)
+                return
+            }
+            
         }
         
         dataTask.resume()
@@ -163,15 +156,23 @@ extension HTTPClient {
         return Self.defaultCDNHost
     }
     
+    internal func configuredRequest(for url: URL, method: String) -> URLRequest {
+        var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 60)
+        request.httpMethod = method
+        request.addValue("application/json; charset=utf-8", forHTTPHeaderField: "Content-Type")
+        request.addValue("analytics-ios/\(Analytics.version())", forHTTPHeaderField: "User-Agent")
+        request.addValue("gzip", forHTTPHeaderField: "Accept-Encoding")
+        
+        if let requestFactory = analytics?.configuration.values.requestFactory {
+            request = requestFactory(request)
+        }
+        
+        return request
+    }
+    
     internal static func configuredSession(for writeKey: String) -> URLSession {
         let configuration = URLSessionConfiguration.ephemeral
-        configuration.allowsCellularAccess = true
-        configuration.timeoutIntervalForResource = 30
-        configuration.timeoutIntervalForRequest = 60
         configuration.httpMaximumConnectionsPerHost = 2
-        configuration.httpAdditionalHeaders = ["Content-Type": "application/json; charset=utf-8",
-                                               "Authorization": "Basic \(Self.authorizationHeaderForWriteKey(writeKey))",
-                                               "User-Agent": "analytics-ios/\(Analytics.version())"]
         let session = URLSession(configuration: configuration, delegate: nil, delegateQueue: nil)
         return session
     }
