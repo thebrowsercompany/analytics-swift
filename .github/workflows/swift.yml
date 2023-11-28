@@ -55,6 +55,7 @@ jobs:
           release-tag-name: "20231116.2"
           github-repo: "thebrowsercompany/swift-build"
           release-asset-name: installer-amd64.exe
+          github-token: ${{ secrets.GITHUB_TOKEN }}
       - uses: actions/checkout@v2
       - name: Build
         run: swift build
