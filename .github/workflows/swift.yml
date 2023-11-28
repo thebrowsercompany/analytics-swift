@@ -52,8 +52,9 @@ jobs:
     steps:
       - uses: compnerd/gha-setup-swift@main
         with:
-          branch: swift-5.9-release
-          tag: 5.9-RELEASE
+          release-tag-name: "20231116.2"
+          github-repo: "thebrowsercompany/swift-build"
+          release-asset-name: installer-amd64.exe
       - uses: actions/checkout@v2
       - name: Build
         run: swift build
