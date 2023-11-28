@@ -405,8 +405,7 @@ final class Analytics_Tests: XCTestCase {
         XCTAssertTrue(analytics.configuration.values.flushAt == 1)
     }
 
-    #if !os(Windows)
-    func testPurgeStorage() {
+    func testPurgeStorage() throws {
         // Use a specific writekey to this test so we do not collide with other cached items.
         let analytics = Analytics(configuration: Configuration(writeKey: "testFlush_do_not_reuse_this_writekey_either").flushInterval(9999).flushAt(9999))
 
@@ -429,20 +428,19 @@ final class Analytics_Tests: XCTestCase {
         analytics.flush()
         analytics.track(name: "test")
 
-        var newPendingCount = analytics.pendingUploads!.count
+        var newPendingCount = try XCTUnwrap(analytics.pendingUploads).count
         XCTAssertEqual(newPendingCount, 4)
 
-        let pending = analytics.pendingUploads!
-        analytics.purgeStorage(fileURL: pending.first!)
+        let pending = try XCTUnwrap(analytics.pendingUploads)
+        analytics.purgeStorage(fileURL: try XCTUnwrap(pending.first))
 
-        newPendingCount = analytics.pendingUploads!.count
+        newPendingCount = try XCTUnwrap(analytics.pendingUploads).count
         XCTAssertEqual(newPendingCount, 3)
 
         analytics.purgeStorage()
-        newPendingCount = analytics.pendingUploads!.count
+        newPendingCount = try XCTUnwrap(analytics.pendingUploads).count
         XCTAssertEqual(newPendingCount, 0)
     }
-    #endif
 
     func testVersion() {
         let analytics = Analytics(configuration: Configuration(writeKey: "test"))
