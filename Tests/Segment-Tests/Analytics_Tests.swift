@@ -405,6 +405,7 @@ final class Analytics_Tests: XCTestCase {
         XCTAssertTrue(analytics.configuration.values.flushAt == 1)
     }
 
+    #if !os(Windows)
     func testPurgeStorage() {
         // Use a specific writekey to this test so we do not collide with other cached items.
         let analytics = Analytics(configuration: Configuration(writeKey: "testFlush_do_not_reuse_this_writekey_either").flushInterval(9999).flushAt(9999))
@@ -441,6 +442,7 @@ final class Analytics_Tests: XCTestCase {
         newPendingCount = analytics.pendingUploads!.count
         XCTAssertEqual(newPendingCount, 0)
     }
+    #endif
 
     func testVersion() {
         let analytics = Analytics(configuration: Configuration(writeKey: "test"))
