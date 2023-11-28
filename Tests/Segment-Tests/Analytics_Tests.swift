@@ -441,6 +441,7 @@ final class Analytics_Tests: XCTestCase {
         newPendingCount = try XCTUnwrap(analytics.pendingUploads).count
         XCTAssertEqual(newPendingCount, 0)
     }
+    #endif
 
     func testVersion() {
         let analytics = Analytics(configuration: Configuration(writeKey: "test"))
