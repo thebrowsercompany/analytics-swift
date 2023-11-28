@@ -16,7 +16,7 @@ class iOSLifecycleEvents: PlatformPlugin, iOSLifecycle {
     static var buildKey = "SEGBuildKeyV2"
     
     let type = PluginType.before
-    var analytics: Analytics?
+    weak var analytics: Analytics?
     
     /// Since application:didFinishLaunchingWithOptions is not automatically called with Scenes / SwiftUI,
     /// this gets around by using a flag in user defaults to check for big events like application updating,
@@ -54,12 +54,15 @@ class iOSLifecycleEvents: PlatformPlugin, iOSLifecycle {
             ])
         }
         
+        let sourceApp: String? = launchOptions?[UIApplication.LaunchOptionsKey.sourceApplication] as? String ?? ""
+        let url: String? = launchOptions?[UIApplication.LaunchOptionsKey.url] as? String ?? ""
+        
         analytics?.track(name: "Application Opened", properties: [
             "from_background": false,
             "version": currentVersion ?? "",
             "build": currentBuild ?? "",
-            "referring_application": launchOptions?[UIApplication.LaunchOptionsKey.sourceApplication] ?? "",
-            "url": launchOptions?[UIApplication.LaunchOptionsKey.url] ?? ""
+            "referring_application": sourceApp ?? "",
+            "url": url ?? ""
         ])
         
         UserDefaults.standard.setValue(currentVersion, forKey: Self.versionKey)
@@ -74,18 +77,20 @@ class iOSLifecycleEvents: PlatformPlugin, iOSLifecycle {
         let currentVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String
         let currentBuild = Bundle.main.infoDictionary?["CFBundleVersion"] as? String
         
-        analytics?.track(name: "Application Opened", properties: [
-            "from_background": true,
-            "version": currentVersion ?? "",
-            "build": currentBuild ?? ""
-        ])
+        if didFinishLaunching == false {
+            analytics?.track(name: "Application Opened", properties: [
+                "from_background": true,
+                "version": currentVersion ?? "",
+                "build": currentBuild ?? ""
+            ])
+        }
     }
     
     func applicationDidEnterBackground(application: UIApplication?) {
+        didFinishLaunching = false
         if analytics?.configuration.values.trackApplicationLifecycleEvents == false {
             return
         }
-        
         analytics?.track(name: "Application Backgrounded")
     }
     
@@ -93,13 +98,7 @@ class iOSLifecycleEvents: PlatformPlugin, iOSLifecycle {
         if analytics?.configuration.values.trackApplicationLifecycleEvents == false {
             return
         }
-        
-        // Lets check if we skipped application:didFinishLaunchingWithOptions,
-        // if so, lets call it.
-        if didFinishLaunching == false {
-            // Call application did finish launching
-            self.application(nil, didFinishLaunchingWithOptions: nil)
-        }
+        analytics?.track(name: "Application Foregrounded")
     }
 }
 

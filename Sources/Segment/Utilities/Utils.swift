@@ -57,3 +57,4 @@ extension Optional: Flattenable {
         }
     }
 }
+

@@ -18,7 +18,7 @@ public enum JSON: Equatable {
     case array([JSON])
     case object([String: JSON])
     
-    private enum JSONError: Error {
+    internal enum JSONError: Error {
         case unknown
         case nonJSONType(type: String)
         case incorrectType
@@ -26,6 +26,11 @@ public enum JSON: Equatable {
     
     public init(_ object: [String: Any]) throws {
         self = .object(try object.mapValues(JSON.init))
+    }
+    
+    public init?(nilOrObject object: [String: Any]?) throws {
+        guard let object = object else { return nil }
+        try self.init(object)
     }
     
     // For Value types
@@ -51,7 +56,7 @@ public enum JSON: Equatable {
             }
             
         // handle swift types
-        case nil:
+        case Optional<Any>.none:
             self = .null
         case let url as URL:
             self = .string(url.absoluteString)
@@ -59,7 +64,9 @@ public enum JSON: Equatable {
             self = .string(string)
         case let bool as Bool:
             self = .bool(bool)
-        case let array as [Any]:
+        case let aSet as Set<AnyHashable>:
+            self = .array(try aSet.map(JSON.init))
+        case let array as Array<Any>:
             self = .array(try array.map(JSON.init))
         case let object as [String: Any]:
             self = .object(try object.mapValues(JSON.init))

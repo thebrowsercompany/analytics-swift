@@ -6,8 +6,10 @@
 //
 
 #import "AppDelegate.h"
+#import "ObjCExample-Swift.h"
 
 @import Segment;
+@import SegmentMixpanel;
 
 @interface AppDelegate ()
 
@@ -18,13 +20,59 @@
 
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
     // Override point for customization after application launch.
-    SEGConfiguration *config = [[SEGConfiguration alloc] initWithWriteKey:@"WRITE_KEY"];
+    SEGConfiguration *config = [[SEGConfiguration alloc] initWithWriteKey:@"<WRITE KEY>"];
     config.trackApplicationLifecycleEvents = YES;
+    config.flushAt = 1;
     
-    SEGAnalytics *analytics = [[SEGAnalytics alloc] initWithConfiguration: config];
+    _analytics = [[SEGAnalytics alloc] initWithConfiguration: config];
     
-    [analytics track:@"test"];
-    [analytics track:@"testProps" properties:@{@"email": @"blah@blah.com"}];
+    [self.analytics track:@"test"];
+    [self.analytics track:@"testProps" properties:@{@"email": @"blah@blah.com"}];
+    
+    [self.analytics flush];
+    
+    SEGTestDestination *testDestination = [[SEGTestDestination alloc] init];
+    [self.analytics addPlugin:testDestination];
+    
+    SEGBlockPlugin *customizeAllTrackCalls = [[SEGBlockPlugin alloc] initWithBlock:^id<SEGRawEvent> _Nullable(id<SEGRawEvent> _Nullable event) {
+        if ([event isKindOfClass: [SEGTrackEvent class]]) {
+            SEGTrackEvent *track = (SEGTrackEvent *)event;
+            // change the name
+            NSString *newName = [NSString stringWithFormat: @"[New] %@", track.event];
+            track.event = newName;
+            // add a property
+            NSMutableDictionary *newProps = (track.properties != nil) ? [track.properties mutableCopy] : [@{} mutableCopy];
+            newProps[@"customAttribute"] = @"Hello";
+            track.properties = newProps;
+            
+            return track;
+        }
+        return event;
+    }];
+    
+    [self.analytics addPlugin:customizeAllTrackCalls];
+    
+    SEGBlockPlugin *booyaAllTrackCalls = [[SEGBlockPlugin alloc] initWithBlock:^id<SEGRawEvent> _Nullable(id<SEGRawEvent> _Nullable event) {
+        if ([event isKindOfClass: [SEGTrackEvent class]]) {
+            SEGTrackEvent *track = (SEGTrackEvent *)event;
+            // change the name
+            NSString *newName = [NSString stringWithFormat: @"[Booya] %@", track.event];
+            track.event = newName;
+            // add a property
+            NSMutableDictionary *newProps = (track.properties != nil) ? [track.properties mutableCopy] : [@{} mutableCopy];
+            newProps[@"customAttribute"] = @"Booya!";
+            track.properties = newProps;
+            
+            return track;
+        }
+        return event;
+    }];
+    
+    [self.analytics addPlugin:booyaAllTrackCalls destinationKey:@"Segment.io"];
+
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [self.analytics track:@"schneeble schnobble"];
+    });
     
     return YES;
 }

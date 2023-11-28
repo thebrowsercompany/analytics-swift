@@ -14,6 +14,7 @@ import UIKit
 // MARK: - Remote Notifications
 
 public protocol RemoteNotifications: Plugin {
+    func declinedRemoteNotifications()
     func registeredForRemoteNotifications(deviceToken: Data)
     func failedToRegisterForRemoteNotification(error: Error?)
     func receivedRemoteNotification(userInfo: [AnyHashable: Any])
@@ -21,6 +22,7 @@ public protocol RemoteNotifications: Plugin {
 }
 
 extension RemoteNotifications {
+    public func declinedRemoteNotifications() {}
     public func registeredForRemoteNotifications(deviceToken: Data) {}
     public func failedToRegisterForRemoteNotification(error: Error?) {}
     public func receivedRemoteNotification(userInfo: [AnyHashable: Any]) {}
@@ -28,6 +30,13 @@ extension RemoteNotifications {
 }
 
 extension Analytics {
+    public func declinedRemoteNotifications() {
+        apply { plugin in
+            if let p = plugin as? RemoteNotifications {
+                p.declinedRemoteNotifications()
+            }
+        }
+    }
     public func registeredForRemoteNotifications(deviceToken: Data) {
         setDeviceToken(deviceToken.hexString)
         
@@ -80,26 +89,20 @@ extension Analytics {
                 p.continueUserActivity(activity)
             }
         }
-    }
-}
-
-// MARK: - Opening a URL
-
-public protocol OpeningURLs {
-    func openURL(_ url: URL, options: [UIApplication.OpenURLOptionsKey : Any])
-}
-
-extension OpeningURLs {
-    func openURL(_ url: URL, options: [UIApplication.OpenURLOptionsKey : Any]) {}
-}
-
-extension Analytics {
-    public func openURL(_ url: URL, options: [UIApplication.OpenURLOptionsKey : Any] = [:]) {
-        apply { plugin in
-            if let p = plugin as? OpeningURLs {
-                p.openURL(url, options: options)
+        
+        if activity.activityType == NSUserActivityTypeBrowsingWeb {
+            if let url = activity.webpageURL {
+                openURL(url, options: ["title": activity.title ?? ""])
             }
         }
+    }
+    
+    public func openURL(_ url: URL, options: [UIApplication.OpenURLOptionsKey: Any]) {
+        var converted: [String: Any] = [:]
+        for (key, value) in options {
+            converted[String(describing:key)] = value
+        }
+        openURL(url, options: converted)
     }
 }
 

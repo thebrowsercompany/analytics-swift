@@ -19,9 +19,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         let configuration = Configuration(writeKey: "<WRITE KEY>")
             .trackApplicationLifecycleEvents(true)
             .flushInterval(10)
+            .flushAt(2)
         
         analytics = Analytics(configuration: configuration)
-        analytics?.add(plugin: ConsoleLogger(name: "consoleLogger"))
         
         return true
     }

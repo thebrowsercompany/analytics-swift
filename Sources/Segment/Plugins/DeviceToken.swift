@@ -9,7 +9,7 @@ import Foundation
 
 public class DeviceToken: PlatformPlugin {
     public let type = PluginType.before
-    public var analytics: Analytics?
+    public weak var analytics: Analytics?
     
     public var token: String? = nil
 
@@ -22,7 +22,7 @@ public class DeviceToken: PlatformPlugin {
             do {
                 workingEvent.context = try JSON(context)
             } catch {
-                exceptionFailure("Unable to convert context to JSON: \(error)")
+                analytics?.reportInternalError(error)
             }
         }
         return workingEvent

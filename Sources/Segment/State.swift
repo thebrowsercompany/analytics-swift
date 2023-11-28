@@ -14,6 +14,7 @@ struct System: State {
     let configuration: Configuration
     let settings: Settings?
     let running: Bool
+    let enabled: Bool
     
     struct UpdateSettingsAction: Action {
         let settings: Settings
@@ -21,7 +22,8 @@ struct System: State {
         func reduce(state: System) -> System {
             let result = System(configuration: state.configuration,
                                 settings: settings,
-                                running: state.running)
+                                running: state.running,
+                                enabled: state.enabled)
             return result
         }
     }
@@ -32,7 +34,30 @@ struct System: State {
         func reduce(state: System) -> System {
             return System(configuration: state.configuration,
                           settings: state.settings,
-                          running: running)
+                          running: running,
+                          enabled: state.enabled)
+        }
+    }
+    
+    struct ToggleEnabledAction: Action {
+        let enabled: Bool
+        
+        func reduce(state: System) -> System {
+            return System(configuration: state.configuration,
+                          settings: state.settings,
+                          running: state.running,
+                          enabled: enabled)
+        }
+    }
+    
+    struct UpdateConfigurationAction: Action {
+        let configuration: Configuration
+        
+        func reduce(state: System) -> System {
+            return System(configuration: configuration,
+                          settings: state.settings,
+                          running: state.running,
+                          enabled: state.enabled)
         }
     }
     
@@ -47,7 +72,8 @@ struct System: State {
             }
             return System(configuration: state.configuration,
                           settings: settings,
-                          running: state.running)
+                          running: state.running,
+                          enabled: state.enabled)
         }
     }
 }
@@ -59,10 +85,11 @@ struct UserInfo: Codable, State {
     let anonymousId: String
     let userId: String?
     let traits: JSON?
+    let referrer: URL?
     
     struct ResetAction: Action {
         func reduce(state: UserInfo) -> UserInfo {
-            return UserInfo(anonymousId: UUID().uuidString, userId: nil, traits: nil)
+            return UserInfo(anonymousId: UUID().uuidString, userId: nil, traits: nil, referrer: nil)
         }
     }
     
@@ -70,7 +97,7 @@ struct UserInfo: Codable, State {
         let userId: String
         
         func reduce(state: UserInfo) -> UserInfo {
-            return UserInfo(anonymousId: state.anonymousId, userId: userId, traits: state.traits)
+            return UserInfo(anonymousId: state.anonymousId, userId: userId, traits: state.traits, referrer: state.referrer)
         }
     }
     
@@ -78,16 +105,16 @@ struct UserInfo: Codable, State {
         let traits: JSON?
         
         func reduce(state: UserInfo) -> UserInfo {
-            return UserInfo(anonymousId: state.anonymousId, userId: state.userId, traits: traits)
+            return UserInfo(anonymousId: state.anonymousId, userId: state.userId, traits: traits, referrer: state.referrer)
         }
     }
     
     struct SetUserIdAndTraitsAction: Action {
-        let userId: String
+        let userId: String?
         let traits: JSON?
         
         func reduce(state: UserInfo) -> UserInfo {
-            return UserInfo(anonymousId: state.anonymousId, userId: userId, traits: traits)
+            return UserInfo(anonymousId: state.anonymousId, userId: userId, traits: traits, referrer: state.referrer)
         }
     }
     
@@ -95,7 +122,15 @@ struct UserInfo: Codable, State {
         let anonymousId: String
         
         func reduce(state: UserInfo) -> UserInfo {
-            return UserInfo(anonymousId: anonymousId, userId: state.userId, traits: state.traits)
+            return UserInfo(anonymousId: anonymousId, userId: state.userId, traits: state.traits, referrer: state.referrer)
+        }
+    }
+    
+    struct SetReferrerAction: Action {
+        let url: URL
+        
+        func reduce(state: UserInfo) -> UserInfo {
+            return UserInfo(anonymousId: state.anonymousId, userId: state.userId, traits: state.traits, referrer: url)
         }
     }
 }
@@ -112,7 +147,7 @@ extension System {
                 settings = Settings(writeKey: configuration.values.writeKey, apiHost: HTTPClient.getDefaultAPIHost())
             }
         }
-        return System(configuration: configuration, settings: settings, running: false)
+        return System(configuration: configuration, settings: settings, running: false, enabled: true)
     }
 }
 
@@ -124,6 +159,6 @@ extension UserInfo {
         if let existingId: String = storage.read(.anonymousId) {
             anonymousId = existingId
         }
-        return UserInfo(anonymousId: anonymousId, userId: userId, traits: traits)
+        return UserInfo(anonymousId: anonymousId, userId: userId, traits: traits, referrer: nil)
     }
 }
