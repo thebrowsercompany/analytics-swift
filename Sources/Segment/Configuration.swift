@@ -27,7 +27,7 @@ public class Configuration {
         var errorHandler: ((Error) -> Void)? = nil
         var flushPolicies: [FlushPolicy] = [CountBasedFlushPolicy(), IntervalBasedFlushPolicy()]
         var maximumLogFilesOnDisk: Int = 15
-        var httpSession: HTTPSession = DefaultHTTPSession.urlSession
+        var httpSession: HTTPSession = HTTPSessions.urlSession
     }
 
     internal var values: Values
