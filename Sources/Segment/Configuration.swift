@@ -27,6 +27,7 @@ public class Configuration {
         var errorHandler: ((Error) -> Void)? = nil
         var flushPolicies: [FlushPolicy] = [CountBasedFlushPolicy(), IntervalBasedFlushPolicy()]
         var maximumLogFilesOnDisk: Int = 15
+        var httpSession: HTTPSession = DefaultHTTPSession.urlSession
     }
 
     internal var values: Values
@@ -187,6 +188,15 @@ public extension Configuration {
     @discardableResult
     func flushPolicies(_ policies: [FlushPolicy]) -> Configuration {
         values.flushPolicies = policies
+        return self
+    }
+
+    /// Sets an alternative to the default `HTTPSession` value (powered buy Apple's URLSession)
+    /// - Parameter httpSession: A class conforming to the HTTPSession protocol
+    /// - Returns: The current configuration
+    @discardableResult
+    func httpSession(_ httpSession: HTTPSession) -> Configuration {
+        values.httpSession = httpSession
         return self
     }
 }

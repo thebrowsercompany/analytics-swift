@@ -21,7 +21,7 @@ public class HTTPClient {
     private static let defaultAPIHost = "api.segment.io/v1"
     private static let defaultCDNHost = "cdn-settings.segment.com/v1"
 
-    internal var session: URLSession
+    internal var session: HTTPSession
     private var apiHost: String
     private var apiKey: String
     private var cdnHost: String
@@ -35,7 +35,7 @@ public class HTTPClient {
         self.apiHost = analytics.configuration.values.apiHost
         self.cdnHost = analytics.configuration.values.cdnHost
 
-        self.session = Self.configuredSession(for: self.apiKey)
+        self.session = analytics.configuration.values.httpSession
     }
 
     func segmentURL(for host: String, path: String) -> URL? {
@@ -52,7 +52,7 @@ public class HTTPClient {
     ///   - batch: The array of the events, considered a batch of events.
     ///   - completion: The closure executed when done. Passes if the task should be retried or not if failed.
     @discardableResult
-    func startBatchUpload(writeKey: String, batch: URL, completion: @escaping (_ result: Result<Bool, Error>) -> Void) -> URLSessionDataTask? {
+    func startBatchUpload(writeKey: String, batch: URL, completion: @escaping (_ result: Result<Bool, Error>) -> Void) -> DataTask? {
         guard let uploadURL = segmentURL(for: apiHost, path: "/b") else {
             self.analytics?.reportInternalError(HTTPClientErrors.failedToOpenBatch)
             completion(.failure(HTTPClientErrors.failedToOpenBatch))
@@ -168,12 +168,5 @@ extension HTTPClient {
         }
 
         return request
-    }
-
-    internal static func configuredSession(for writeKey: String) -> URLSession {
-        let configuration = URLSessionConfiguration.ephemeral
-        configuration.httpMaximumConnectionsPerHost = 2
-        let session = URLSession(configuration: configuration, delegate: nil, delegateQueue: nil)
-        return session
     }
 }
