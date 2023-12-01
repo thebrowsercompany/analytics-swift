@@ -26,7 +26,7 @@ class WindowsVendorSystem: VendorSystem {
   }
 
   override var systemName: String {
-    return "unknown"
+    return "Windows"
   }
 
   override var systemVersion: String {
