@@ -204,10 +204,10 @@ extension Storage {
     }
 
     private func eventStorageDirectory() -> URL {
-        #if os(tvOS) || os(macOS)
+        #if os(tvOS) || os(macOS) || os(Windows)
         let searchPathDirectory = FileManager.SearchPathDirectory.cachesDirectory
         #else
-        let searchPathDirectory = FileManager.SearchPathDirectory.applicationSupportDirectory
+        let searchPathDirectory = FileManager.SearchPathDirectory.documentsDirectory
         #endif
 
         let urls = FileManager.default.urls(for: searchPathDirectory, in: .userDomainMask)
