@@ -289,11 +289,7 @@ extension Analytics {
 
     /// Purge a single event upload file.
     public func purgeStorage(fileURL: URL) {
-        do {
-            try FileManager.default.removeItem(at: fileURL)
-        } catch {
-            print("Error removing file: \(fileURL), \(error.localizedDescription)")
-        }
+        try? FileManager.default.removeItem(at: fileURL)
     }
 
     /// Wait until the Analytics object has completed startup.

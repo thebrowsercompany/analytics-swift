@@ -232,12 +232,10 @@ extension Storage {
 
         // finish out any file in progress
         let index = userDefaults?.integer(forKey: Constants.events.rawValue) ?? 0
-        print("Index of userdefaults events: \(index)")
         finish(file: eventsFile(index: index))
 
         let allFiles = try? FileManager.default.contentsOfDirectory(at: eventStorageDirectory(), includingPropertiesForKeys: [], options: .skipsHiddenFiles)
         var files = allFiles
-        print("All Files(\(allFiles?.count)): \(allFiles)")
 
         if includeUnfinished == false {
             files = allFiles?.filter { (file) -> Bool in
