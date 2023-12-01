@@ -237,7 +237,7 @@ extension Storage {
 
         let allFiles = try? FileManager.default.contentsOfDirectory(at: eventStorageDirectory(), includingPropertiesForKeys: [], options: .skipsHiddenFiles)
         var files = allFiles
-        print("All Files(\(allFiles.count)): \(allFiles)")
+        print("All Files(\(allFiles?.count)): \(allFiles)")
 
         if includeUnfinished == false {
             files = allFiles?.filter { (file) -> Bool in
