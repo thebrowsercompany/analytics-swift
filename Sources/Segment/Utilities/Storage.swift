@@ -207,7 +207,7 @@ extension Storage {
         #if os(tvOS) || os(macOS) || os(Windows)
         let searchPathDirectory = FileManager.SearchPathDirectory.cachesDirectory
         #else
-        let searchPathDirectory = FileManager.SearchPathDirectory.documentsDirectory
+        let searchPathDirectory = FileManager.SearchPathDirectory.documentDirectory
         #endif
 
         let urls = FileManager.default.urls(for: searchPathDirectory, in: .userDomainMask)
