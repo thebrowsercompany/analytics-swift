@@ -13,12 +13,12 @@ public protocol DataTask {
 // This can be extended buy consumer to easily refer back to their configured session.
 public enum HTTPSessions {
   /// An implementation of `HTTPSession` backed by Apple's `URLSession`.
-  public static let urlSession: HTTPSession = {
+  public static func urlSession() -> HTTPSession {
       let configuration = URLSessionConfiguration.ephemeral
       configuration.httpMaximumConnectionsPerHost = 2
       let session = URLSession(configuration: configuration, delegate: nil, delegateQueue: nil)
       return session
-  }()
+  }
 }
 
 public protocol HTTPSession {

@@ -35,7 +35,11 @@ public class HTTPClient {
         self.apiHost = analytics.configuration.values.apiHost
         self.cdnHost = analytics.configuration.values.cdnHost
 
-        self.session = analytics.configuration.values.httpSession
+        guard let session = analytics.configuration.values.httpSession?() else {
+            fatalError("Unable to create httpSession, did you set one on the Configuration?")
+        }
+
+        self.session = session
     }
 
     func segmentURL(for host: String, path: String) -> URL? {
