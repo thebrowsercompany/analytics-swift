@@ -34,7 +34,7 @@ public class SegmentDestination: DestinationPlugin, Subscriber {
 
     internal struct UploadTaskInfo {
         let url: URL
-        let task: URLSessionDataTask
+        let task: DataTask
         // set/used via an extension in iOSLifecycleMonitor.swift
         typealias CleanupClosure = () -> Void
         var cleanup: CleanupClosure? = nil

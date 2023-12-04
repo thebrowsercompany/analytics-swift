@@ -27,6 +27,7 @@ public class Configuration {
         var errorHandler: ((Error) -> Void)? = nil
         var flushPolicies: [FlushPolicy] = [CountBasedFlushPolicy(), IntervalBasedFlushPolicy()]
         var maximumLogFilesOnDisk: Int = 15
+        var httpSession: (() -> any HTTPSession)? = nil
     }
 
     internal var values: Values
@@ -35,7 +36,7 @@ public class Configuration {
     ///
     /// - Parameter writeKey: Your Segment write key value
     public init(writeKey: String) {
-        self.values = Values(writeKey: writeKey)
+        self.values = Values(writeKey: writeKey, httpSession: { HTTPSessions.urlSession() })
         // enable segment destination by default
         var settings = Settings(writeKey: writeKey)
         settings.integrations = try? JSON([
@@ -187,6 +188,15 @@ public extension Configuration {
     @discardableResult
     func flushPolicies(_ policies: [FlushPolicy]) -> Configuration {
         values.flushPolicies = policies
+        return self
+    }
+
+    /// Sets an alternative to the default `HTTPSession` value (powered buy Apple's URLSession)
+    /// - Parameter httpSession: A class conforming to the HTTPSession protocol
+    /// - Returns: The current configuration
+    @discardableResult
+    func httpSession(_ httpSession: @escaping @autoclosure () -> any HTTPSession) -> Configuration {
+        values.httpSession = httpSession
         return self
     }
 }
