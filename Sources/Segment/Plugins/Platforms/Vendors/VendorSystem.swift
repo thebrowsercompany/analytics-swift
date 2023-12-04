@@ -28,47 +28,47 @@ internal class VendorSystem {
     var manufacturer: String {
         return "unknown"
     }
-    
+
     var type: String {
         return "unknown"
     }
-    
+
     var model: String {
         return "unknown"
     }
-    
+
     var name: String {
         return "unknown"
     }
-    
+
     var identifierForVendor: String? {
         return nil
     }
-    
+
     var systemName: String {
         return "unknown"
     }
-    
+
     var systemVersion: String {
         return ""
     }
-    
+
     var screenSize: ScreenSize {
         return ScreenSize(width: 0, height: 0)
     }
-    
+
     var userAgent: String? {
         return "unknown"
     }
-    
+
     var connection: ConnectionStatus {
         return ConnectionStatus.unknown
     }
-    
+
     var requiredPlugins: [PlatformPlugin] {
         return []
     }
-    
+
     static var current: VendorSystem = {
         #if os(iOS) || os(tvOS) || targetEnvironment(macCatalyst)
         return iOSVendorSystem()
@@ -78,6 +78,8 @@ internal class VendorSystem {
         return watchOSVendorSystem()
         #elseif os(Linux)
         return LinuxVendorSystem()
+        #elseif os(Windows)
+        return WindowsVendorSystem()
         #else
         return VendorSystem()
         #endif

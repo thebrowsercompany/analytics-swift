@@ -18,10 +18,10 @@ internal class Storage: Subscriber {
     let syncQueue = DispatchQueue(label: "sync.segment.com")
 
     private var outputStream: OutputFileStream? = nil
-    
+
     internal var onFinish: ((URL) -> Void)? = nil
     internal weak var analytics: Analytics? = nil
-    
+
     init(store: Store, writeKey: String) {
         self.writeKey = writeKey
         self.userDefaults = UserDefaults(suiteName: "com.segment.storage.\(writeKey)")
@@ -32,7 +32,7 @@ internal class Storage: Subscriber {
             self?.systemUpdate(state: state)
         }
     }
-    
+
     func write<T: Codable>(_ key: Storage.Constants, value: T?) {
         syncQueue.sync {
             switch key {
@@ -66,7 +66,7 @@ internal class Storage: Subscriber {
             userDefaults?.synchronize()
         }
     }
-    
+
     func read(_ key: Storage.Constants) -> [URL]? {
         var result: [URL]? = nil
         syncQueue.sync {
@@ -79,7 +79,7 @@ internal class Storage: Subscriber {
         }
         return result
     }
-    
+
     func read<T: Codable>(_ key: Storage.Constants) -> T? {
         var result: T? = nil
         syncQueue.sync {
@@ -101,18 +101,18 @@ internal class Storage: Subscriber {
         }
         return result
     }
-    
+
     static func hardSettingsReset(writeKey: String) {
         guard let defaults = UserDefaults(suiteName: "com.segment.storage.\(writeKey)") else { return }
         defaults.removeObject(forKey: Constants.anonymousId.rawValue)
         defaults.removeObject(forKey: Constants.settings.rawValue)
         print(Array(defaults.dictionaryRepresentation().keys).count)
     }
-    
+
     func hardReset(doYouKnowHowToUseThis: Bool) {
         syncQueue.sync {
             if doYouKnowHowToUseThis != true { return }
-            
+
             let urls = eventFiles(includeUnfinished: true)
             for key in Constants.allCases {
                 // on linux, setting a key's value to nil just deadlocks.
@@ -126,7 +126,7 @@ internal class Storage: Subscriber {
             }
         }
     }
-    
+
     func isBasicType<T: Codable>(value: T?) -> Bool {
         var result = false
         if value == nil {
@@ -150,7 +150,7 @@ internal class Storage: Subscriber {
         }
         return result
     }
-    
+
     func remove(file: URL) {
         syncQueue.sync {
             // remove the temp file.
@@ -164,7 +164,7 @@ internal class Storage: Subscriber {
 
 extension Storage {
     private static let tempExtension = "temp"
-    
+
     enum Constants: String, CaseIterable {
         case userId = "segment.userId"
         case traits = "segment.traits"
@@ -183,7 +183,7 @@ extension Storage {
         write(.traits, value: state.traits)
         write(.anonymousId, value: state.anonymousId)
     }
-    
+
     internal func systemUpdate(state: System) {
         // write new stuff to disk
         if let s = state.settings {
@@ -202,14 +202,14 @@ extension Storage {
         currentFile = index
         return self.eventsFile(index: currentFile)
     }
-    
+
     private func eventStorageDirectory() -> URL {
-        #if os(tvOS) || os(macOS)
+        #if os(tvOS) || os(macOS) || os(Windows)
         let searchPathDirectory = FileManager.SearchPathDirectory.cachesDirectory
         #else
         let searchPathDirectory = FileManager.SearchPathDirectory.documentDirectory
         #endif
-        
+
         let urls = FileManager.default.urls(for: searchPathDirectory, in: .userDomainMask)
         let docURL = urls[0]
         let segmentURL = docURL.appendingPathComponent("segment/\(writeKey)/")
@@ -218,13 +218,13 @@ extension Storage {
         try? FileManager.default.createDirectory(at: segmentURL, withIntermediateDirectories: true, attributes: nil)
         return segmentURL
     }
-    
+
     private func eventsFile(index: Int) -> URL {
         let docs = eventStorageDirectory()
         let fileURL = docs.appendingPathComponent("\(index)-segment-events")
         return fileURL
     }
-    
+
     internal func eventFiles(includeUnfinished: Bool) -> [URL] {
         // synchronized against finishing/creating files while we're getting
         // a list of files to send.
@@ -233,16 +233,16 @@ extension Storage {
         // finish out any file in progress
         let index = userDefaults?.integer(forKey: Constants.events.rawValue) ?? 0
         finish(file: eventsFile(index: index))
-        
+
         let allFiles = try? FileManager.default.contentsOfDirectory(at: eventStorageDirectory(), includingPropertiesForKeys: [], options: .skipsHiddenFiles)
         var files = allFiles
-        
+
         if includeUnfinished == false {
             files = allFiles?.filter { (file) -> Bool in
                 return file.pathExtension == Storage.tempExtension
             }
         }
-        
+
         let sorted = files?.sorted { (left, right) -> Bool in
             return left.lastPathComponent > right.lastPathComponent
         }
@@ -258,7 +258,7 @@ extension Storage {
 extension Storage {
     private func storeEvent(toFile file: URL, event: RawEvent) {
         var storeFile = file
-        
+
         let fm = FileManager.default
         var newFile = false
         if fm.fileExists(atPath: storeFile.path) == false {
@@ -268,7 +268,7 @@ extension Storage {
             // this can happen if an instance was terminated before finishing a file.
             open(file: storeFile)
         }
-        
+
         // Verify file size isn't too large
         if let attributes = try? fm.attributesOfItem(atPath: storeFile.path),
            let fileSize = attributes[FileAttributeKey.size] as? UInt64,
@@ -279,7 +279,7 @@ extension Storage {
             start(file: storeFile)
             newFile = true
         }
-        
+
         let jsonString = event.toString()
         do {
             if outputStream == nil {
@@ -294,7 +294,7 @@ extension Storage {
             analytics?.reportInternalError(error)
         }
     }
-    
+
     private func start(file: URL) {
         let contents = "{ \"batch\": ["
         do {
@@ -305,7 +305,7 @@ extension Storage {
             analytics?.reportInternalError(error)
         }
     }
-    
+
     private func open(file: URL) {
         if outputStream == nil {
             // this can happen if an instance was terminated before finishing a file.
@@ -324,14 +324,14 @@ extension Storage {
             }
         }
     }
-    
+
     private func finish(file: URL) {
         guard let outputStream = self.outputStream else {
             // we haven't actually started a file yet and being told to flush
             // so ignore it and get out.
             return
         }
-        
+
         let sentAt = Date().iso8601()
 
         // write it to the existing file
@@ -342,7 +342,7 @@ extension Storage {
         } catch {
             analytics?.reportInternalError(error)
         }
-        
+
         self.outputStream = nil
 
         let tempFile = file.appendingPathExtension(Storage.tempExtension)
@@ -351,7 +351,7 @@ extension Storage {
         } catch {
             analytics?.reportInternalError(AnalyticsError.storageUnableToRename(file.path))
         }
-        
+
         // necessary for testing, do not use.
         onFinish?(tempFile)
 
