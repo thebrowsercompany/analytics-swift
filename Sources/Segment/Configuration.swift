@@ -27,7 +27,7 @@ public class Configuration {
         var errorHandler: ((Error) -> Void)? = nil
         var flushPolicies: [FlushPolicy] = [CountBasedFlushPolicy(), IntervalBasedFlushPolicy()]
         var maximumLogFilesOnDisk: Int = 15
-        var httpSession: (() -> HTTPSession)? = nil
+        var httpSession: (() -> any HTTPSession)? = nil
     }
 
     internal var values: Values
@@ -195,7 +195,7 @@ public extension Configuration {
     /// - Parameter httpSession: A class conforming to the HTTPSession protocol
     /// - Returns: The current configuration
     @discardableResult
-    func httpSession(_ httpSession: @escaping @autoclosure () -> HTTPSession) -> Configuration {
+    func httpSession(_ httpSession: @escaping @autoclosure () -> any HTTPSession) -> Configuration {
         values.httpSession = httpSession
         return self
     }
