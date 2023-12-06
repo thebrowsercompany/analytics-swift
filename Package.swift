@@ -3,6 +3,14 @@
 
 import PackageDescription
 
+#if os(Windows)
+// We need to use a dynamic library type to control the number
+// of exported symbols in our application temporarily.
+let libraryType: Product.Library.LibraryType = .dynamic
+#else
+let libraryType: Product.Library.LibraryType = .static
+#endif
+
 let package = Package(
     name: "Segment",
     platforms: [
@@ -15,6 +23,7 @@ let package = Package(
         // Products define the executables and libraries a package produces, and make them visible to other packages.
         .library(
             name: "Segment",
+            type: libraryType,
             targets: ["Segment"]),
     ],
     dependencies: [
