@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import CryptoKit
 
 public protocol OpeningURLs {
     func openURL(_ url: URL, options: [String : Any])
@@ -92,11 +93,17 @@ public class Context: PlatformPlugin {
         // device
         let device = Self.device
         
+        let deviceIdData = (device.identifierForVendor ?? "").data(using: .utf8)!
+        let hashed = SHA256.hash(data: deviceIdData).compactMap { String(format: "%02x", $0) }.joined()
+        
+        
         // "token" handled in DeviceToken.swift
         context["device"] = [
             "manufacturer": device.manufacturer,
             "type": device.type,
             "model": device.model,
+            "id": device.identifierForVendor ?? "",
+            "hashed_id": hashed,
         ]
         // os
         context["os"] = [
