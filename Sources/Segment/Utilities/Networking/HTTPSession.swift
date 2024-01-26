@@ -5,7 +5,7 @@ import FoundationNetworking
 #endif
 
 public protocol DataTask {
-  var state: URLSessionTask.State { get }
+  func isRunning() -> Bool
   func resume()
 }
 
@@ -31,3 +31,4 @@ public protocol HTTPSession {
   func dataTask(with request: URLRequest, completionHandler: @escaping @Sendable (Data?, URLResponse?, (any Error)?) -> Void) -> DataTaskType
   func finishTasksAndInvalidate()
 }
+
