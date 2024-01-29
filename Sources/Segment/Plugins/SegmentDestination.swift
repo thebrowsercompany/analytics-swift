@@ -182,7 +182,7 @@ extension SegmentDestination {
             let before = uploads.count
             var newPending = uploads
             newPending.removeAll { uploadInfo in
-                let shouldRemove = uploadInfo.task.state != .running
+                let shouldRemove = !uploadInfo.task.isRunning()
                 if shouldRemove, let cleanup = uploadInfo.cleanup {
                     cleanup()
                 }
