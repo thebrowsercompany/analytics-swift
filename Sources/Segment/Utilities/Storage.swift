@@ -42,6 +42,7 @@ internal class Storage: Subscriber {
         if FileManager.default.fileExists(atPath: fromURL.path) {
             let toURL = eventStorageDirectory()
             try? FileManager.default.moveItem(at: fromURL, to: toURL)
+            try? FileManager.default.removeItem(at: fromURL)
         }
         if FileManager.default.subpaths(atPath: sourceFolder.path)?.isEmpty == true {
             try? FileManager.default.removeItem(at: sourceFolder)
