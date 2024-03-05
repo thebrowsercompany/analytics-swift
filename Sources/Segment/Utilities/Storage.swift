@@ -31,6 +31,18 @@ internal class Storage: Subscriber {
         store.subscribe(self) { [weak self] (state: System) in
             self?.systemUpdate(state: state)
         }
+        migrateIfNeeded()
+    }
+
+    func migrateIfNeeded() {
+        #if os(iOS)
+        let fromURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("segment/\(writeKey)/")
+        if FileManager.default.fileExists(atPath: fromURL.path) {
+            let toURL = eventStorageDirectory()
+            try? FileManager.default.moveItem(at: fromURL, to: toURL)
+        }
+        #endif
     }
 
     func write<T: Codable>(_ key: Storage.Constants, value: T?) {
@@ -204,14 +216,7 @@ extension Storage {
     }
 
     private func eventStorageDirectory() -> URL {
-        #if os(tvOS) || os(macOS) || os(Windows)
-        let searchPathDirectory = FileManager.SearchPathDirectory.cachesDirectory
-        #else
-        // Do not use `documentDirectory` on iOS or they can appear in the Files app
-        let searchPathDirectory = FileManager.SearchPathDirectory.cachesDirectory
-        #endif
-
-        let urls = FileManager.default.urls(for: searchPathDirectory, in: .userDomainMask)
+        let urls = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)
         let docURL = urls[0]
         let segmentURL = docURL.appendingPathComponent("segment/\(writeKey)/")
         // try to create it, will fail if already exists, nbd.
