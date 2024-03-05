@@ -36,11 +36,15 @@ internal class Storage: Subscriber {
 
     func migrateIfNeeded() {
         #if os(iOS)
-        let fromURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("segment/\(writeKey)/")
+        let sourceFolder = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("segment/")
+        let fromURL = sourceFolder.appendingPathComponent("\(writeKey)/")
         if FileManager.default.fileExists(atPath: fromURL.path) {
             let toURL = eventStorageDirectory()
             try? FileManager.default.moveItem(at: fromURL, to: toURL)
+        }
+        if FileManager.default.subpaths(atPath: sourceFolder.path)?.isEmpty == true {
+            try? FileManager.default.removeItem(at: sourceFolder)
         }
         #endif
     }
