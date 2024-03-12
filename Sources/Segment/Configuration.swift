@@ -16,7 +16,7 @@ public class Configuration {
     internal struct Values {
         var writeKey: String
         var application: Any? = nil
-        var trackApplicationLifecycleEvents: Bool = true
+        var trackApplicationLifecycleEvents: Bool = false
         var flushAt: Int = 20
         var flushInterval: TimeInterval = 30
         var defaultSettings: Settings? = nil
