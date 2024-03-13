@@ -19,7 +19,7 @@ final class MemoryLeak_Tests: XCTestCase {
     }
 
     func testLeaksVerbose() throws {
-        let analytics = Analytics(configuration: Configuration(writeKey: "1234"))
+        let analytics = Analytics(configuration: Configuration(writeKey: "1234").trackApplicationLifecycleEvents(true))
 
         waitUntilStarted(analytics: analytics)
         analytics.track(name: "test")

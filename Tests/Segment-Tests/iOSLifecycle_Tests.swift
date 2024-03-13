@@ -27,7 +27,7 @@ final class iOSLifecycle_Tests: XCTestCase {
     }
 
     func testInstallEventUpdated() {
-        let analytics = Analytics(configuration: Configuration(writeKey: "test").trackApplicationLifecycleEvents(enabled: true))
+        let analytics = Analytics(configuration: Configuration(writeKey: "test"))
         let outputReader = OutputReaderPlugin()
         analytics.add(plugin: outputReader)
         
