@@ -28,6 +28,7 @@ public class Configuration {
         var flushPolicies: [FlushPolicy] = [CountBasedFlushPolicy(), IntervalBasedFlushPolicy()]
         var maximumLogFilesOnDisk: Int = 15
         var httpSession: (() -> any HTTPSession)? = nil
+        var blind: Bool = false
     }
 
     internal var values: Values
@@ -82,6 +83,17 @@ public extension Configuration {
     @discardableResult
     func flushAt(_ count: Int) -> Configuration {
         values.flushAt = count
+        return self
+    }
+
+    /// Opt-in/out of blind mode. In blind mode, user identifier are stripped
+    /// from tracked events.
+    ///
+    /// - Parameter blind: Whether blind mode is enabled
+    /// - Returns: The current Configuration.
+    @discardableResult
+    func blind(_ enabled: Bool) -> Configuration {
+        values.blind = enabled
         return self
     }
 
