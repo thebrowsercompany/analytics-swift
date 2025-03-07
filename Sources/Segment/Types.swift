@@ -294,7 +294,7 @@ extension RawEvent {
         
         let userInfo: UserInfo? = store.currentState()
         
-        result.anonymousId = userInfo?.anonymousId
+        result.anonymousId = userInfo?.anonymousId ?? "redacted"
         result.userId = userInfo?.userId
         result.messageId = UUID().uuidString
         result.timestamp = Date().iso8601()
