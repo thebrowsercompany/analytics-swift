@@ -17,12 +17,18 @@ public class StartupQueue: Plugin, Subscriber {
     
     public weak var analytics: Analytics? = nil {
         didSet {
-            analytics?.store.subscribe(self) { [weak self] (state: System) in
+            // Handle running-state changes off the main queue: replaying the
+            // queued events writes each one to the event file synchronously,
+            // which can block the app's main thread for the duration of a
+            // disk flush. This queue must be distinct from `syncQueue`, which
+            // `replayEvents` enters synchronously.
+            analytics?.store.subscribe(self, queue: Self.stateQueue) { [weak self] (state: System) in
                 self?.runningUpdate(state: state)
             }
         }
     }
-    
+
+    private static let stateQueue = DispatchQueue(label: "startupQueue.state.segment.com")
     let syncQueue = DispatchQueue(label: "startupQueue.segment.com")
     var queuedEvents = [RawEvent]()
     
