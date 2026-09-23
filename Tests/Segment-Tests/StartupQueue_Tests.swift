@@ -31,6 +31,22 @@ private class RecordingPlugin: Plugin {
 }
 
 final class StartupQueue_Tests: XCTestCase {
+    /// Bounded wait: a hang here is exactly the regression these tests guard
+    /// against, so it must fail rather than block the suite.
+    @discardableResult
+    private func waitUntilRunning(_ analytics: Analytics, timeout: TimeInterval = 15) -> Bool {
+        guard let startupQueue = analytics.find(pluginType: StartupQueue.self) else {
+            XCTFail("StartupQueue plugin missing")
+            return false
+        }
+        let deadline = Date(timeIntervalSinceNow: timeout)
+        while startupQueue.running != true && Date() < deadline {
+            RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.02))
+        }
+        XCTAssertTrue(startupQueue.running, "startup replay did not complete within \(timeout)s")
+        return startupQueue.running
+    }
+
     /// Events sent while the system transitions to running must never be
     /// stranded in the startup queue: they are either replayed or passed
     /// through, regardless of the thread they were sent from.
@@ -56,7 +72,7 @@ final class StartupQueue_Tests: XCTestCase {
             analytics.track(name: "main-\(index)")
         }
 
-        waitUntilStarted(analytics: analytics)
+        guard waitUntilRunning(analytics) else { return }
         XCTAssertEqual(group.wait(timeout: .now() + 10), .success)
 
         let expected = backgroundEvents + mainEvents
@@ -81,7 +97,7 @@ final class StartupQueue_Tests: XCTestCase {
             analytics.track(name: "pre-\(index)")
         }
 
-        waitUntilStarted(analytics: analytics)
+        guard waitUntilRunning(analytics) else { return }
         analytics.track(name: "post")
 
         let deadline = Date(timeIntervalSinceNow: 10)
