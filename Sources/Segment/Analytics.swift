@@ -64,9 +64,7 @@ public class Analytics {
 
         // provide our default state
         store.provide(state: System.defaultState(configuration: configuration, from: storage))
-        if !configuration.values.blind {
-            store.provide(state: UserInfo.defaultState(from: storage))
-        }
+        store.provide(state: UserInfo.defaultState(from: storage))
 
         storage.analytics = self
 
