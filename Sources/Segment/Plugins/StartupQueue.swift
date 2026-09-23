@@ -40,6 +40,10 @@ public class StartupQueue: Plugin, Subscriber {
             // the timeline has started, so let the event pass.
             return event
         }
+        // Captured before entering the queue: dispatch runs sync closures on
+        // the caller's thread only as an optimization, so Thread.current
+        // inside the closure does not reliably identify the caller.
+        let callerThread = Thread.current
         var passthrough: T? = nil
         syncQueue.sync {
             // `running` can flip between the unsynchronized check above and
@@ -50,7 +54,7 @@ public class StartupQueue: Plugin, Subscriber {
             // analytics.process while `running` is still false; they are
             // recognized by the replaying thread and passed through instead
             // of being requeued.
-            if running || Thread.current === replayingThread {
+            if running || callerThread === replayingThread {
                 passthrough = e
                 return
             }
@@ -87,7 +91,8 @@ extension StartupQueue {
         // inside the lock only once the backlog is empty, so a concurrent
         // execute() either sees the flip and passes the event through, or
         // enqueues it for a further drain iteration.
-        syncQueue.sync { replayingThread = Thread.current }
+        let replayThread = Thread.current
+        syncQueue.sync { replayingThread = replayThread }
         while true {
             var batch = [RawEvent]()
             syncQueue.sync {

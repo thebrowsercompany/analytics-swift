@@ -111,3 +111,71 @@ final class StartupQueue_Tests: XCTestCase {
         XCTAssertEqual(names.count, queuedEvents + 1)
     }
 }
+
+/// Synchronously tracks one derived event the first time it sees a marker
+/// event pass the timeline, from inside the plugin callback.
+private class DerivedEventPlugin: Plugin {
+    let type: PluginType = .enrichment
+    weak var analytics: Analytics? = nil
+
+    private let lock = NSLock()
+    private var didDerive = false
+
+    func execute<T: RawEvent>(event: T?) -> T? {
+        if let track = event as? TrackEvent, track.event == "marker" {
+            var fire = false
+            lock.lock()
+            if !didDerive {
+                didDerive = true
+                fire = true
+            }
+            lock.unlock()
+            if fire {
+                analytics?.track(name: "derived")
+            }
+        }
+        return event
+    }
+}
+
+extension StartupQueue_Tests {
+    /// Replay under producer contention, with a plugin that synchronously
+    /// tracks a derived event from inside the callback: every event including
+    /// the derived one is delivered exactly once.
+    func testContendedReplayDeliversExactlyOnce() {
+        let analytics = Analytics(configuration: Configuration(writeKey: "startupQueueContended")
+            .flushAt(999999)
+            .flushInterval(999999))
+        let recorder = RecordingPlugin()
+        analytics.add(plugin: DerivedEventPlugin())
+        analytics.add(plugin: recorder)
+
+        analytics.track(name: "marker")
+        let producers = 4
+        let perProducer = 50
+        let group = DispatchGroup()
+        for producer in 0..<producers {
+            group.enter()
+            DispatchQueue.global().async {
+                for index in 0..<perProducer {
+                    analytics.track(name: "p\(producer)-\(index)")
+                }
+                group.leave()
+            }
+        }
+
+        guard waitUntilRunning(analytics) else { return }
+        XCTAssertEqual(group.wait(timeout: .now() + 10), .success)
+
+        let expected = 1 + 1 + producers * perProducer  // marker + derived + producers
+        let deadline = Date(timeIntervalSinceNow: 10)
+        while recorder.names.count < expected && Date() < deadline {
+            RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.05))
+        }
+        let names = recorder.names
+        XCTAssertEqual(names.count, expected)
+        XCTAssertEqual(names.filter { $0 == "marker" }.count, 1)
+        XCTAssertEqual(names.filter { $0 == "derived" }.count, 1)
+        XCTAssertEqual(Set(names).count, expected)
+    }
+}
