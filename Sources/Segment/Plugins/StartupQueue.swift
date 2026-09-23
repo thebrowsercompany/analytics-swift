@@ -35,37 +35,64 @@ public class StartupQueue: Plugin, Subscriber {
     required init() { }
     
     public func execute<T: RawEvent>(event: T?) -> T? {
-        if running == false, let e = event  {
-            // timeline hasn't started, so queue it up.
-            syncQueue.sync {
-                if queuedEvents.count >= Self.maxSize {
-                    // if we've exceeded the max queue size start dropping events
-                    queuedEvents.removeFirst()
-                }
-                queuedEvents.append(e)
-            }
-            return nil
+        guard let e = event else { return event }
+        if running {
+            // the timeline has started, so let the event pass.
+            return event
         }
-        // the timeline has started, so let the event pass.
-        return event
+        var passthrough: T? = nil
+        syncQueue.sync {
+            // `running` can flip between the unsynchronized check above and
+            // acquiring the queue; the final flip happens under `syncQueue`
+            // with the backlog empty, so re-checking here guarantees an event
+            // is either queued while replay will still drain it, or passed
+            // through — never stranded.
+            if running {
+                passthrough = e
+                return
+            }
+            if queuedEvents.count >= Self.maxSize {
+                // if we've exceeded the max queue size start dropping events
+                queuedEvents.removeFirst()
+            }
+            queuedEvents.append(e)
+        }
+        return passthrough
     }
 }
 
 extension StartupQueue {
     internal func runningUpdate(state: System) {
-        running = state.running
         if state.running {
             replayEvents()
+        } else {
+            syncQueue.sync { running = false }
         }
     }
     
     internal func replayEvents() {
-        // replay the queued events to the instance of Analytics we're working with.
-        syncQueue.sync {
-            for event in queuedEvents {
+        // Replay the queued events to the instance of Analytics we're working
+        // with, draining in batches outside the lock: processing an event can
+        // re-enter execute() (which takes `syncQueue`), and events arriving
+        // during a batch keep queueing behind it in order. `running` flips
+        // inside the lock only once the backlog is empty, so a concurrent
+        // execute() either sees the flip and passes the event through, or
+        // enqueues it for the next drain iteration.
+        while true {
+            var batch = [RawEvent]()
+            syncQueue.sync {
+                batch = queuedEvents
+                queuedEvents.removeAll()
+                if batch.isEmpty {
+                    running = true
+                }
+            }
+            if batch.isEmpty {
+                break
+            }
+            for event in batch {
                 analytics?.process(event: event)
             }
-            queuedEvents.removeAll()
         }
     }
 }
